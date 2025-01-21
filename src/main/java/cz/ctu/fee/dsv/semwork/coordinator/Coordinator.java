@@ -5,69 +5,53 @@ import cz.ctu.fee.dsv.semwork.model.ProcessNode;
 import cz.ctu.fee.dsv.semwork.model.ResourceNode;
 
 public class Coordinator {
-
     private final DependencyGraph graph = new DependencyGraph();
 
     public Coordinator() {
-        System.out.println("Coordinator created. (Global graph initialized)");
+        System.out.println("Coordinator created (global graph init).");
     }
 
     /**
-     * Запрос ресурса:
-     *  1) Добавляем ребро P->R
-     *  2) Проверяем на цикл
-     *  3) Если есть цикл, откатываем и возвращаем "DENY"
-     *  4) Если нет, добавляем R->P и возвращаем "GRANT"
+     * Запрос ресурса (Ломет):
+     *  1) P->R
+     *  2) Проверка цикла
+     *  3) Если цикл, откат -> DENY
+     *  4) Иначе R->P -> GRANT
      */
-    public synchronized String requestResource(String processId, String resourceId) {
+    public synchronized boolean requestResource(String processId, String resourceId) {
         ProcessNode p = new ProcessNode(processId);
         ResourceNode r = new ResourceNode(resourceId);
 
-        // Гарантируем наличие вершин в графе
         graph.addNode(p);
         graph.addNode(r);
-
-        // Шаг 1: P->R
         graph.addEdge(p, r);
 
-        // Шаг 2: Проверка цикла
         if (graph.hasCycle()) {
-            // Откат
             graph.removeEdge(p, r);
-            // Отказ
-            return "DENY|" + processId + "|" + resourceId;
+            return false; // DENY
         }
-
-        // Шаг 3: Добавить R->P (ресурс выделен)
+        // добавляем R->P
         graph.addEdge(r, p);
         if (graph.hasCycle()) {
-            // Откат (теоретически не должно случиться)
+            // откат
             graph.removeEdge(r, p);
             graph.removeEdge(p, r);
-            return "DENY|" + processId + "|" + resourceId;
+            return false;
         }
-
-        // Успех
-        return "GRANT|" + processId + "|" + resourceId;
+        return true; // GRANT
     }
 
     /**
-     * Освобождение ресурса:
-     *  - Убираем P->R и R->P, если есть
+     * Освобождение ресурса
      */
-    public synchronized String releaseResource(String processId, String resourceId) {
+    public synchronized void releaseResource(String processId, String resourceId) {
         ProcessNode p = new ProcessNode(processId);
         ResourceNode r = new ResourceNode(resourceId);
 
         graph.removeEdge(p, r);
         graph.removeEdge(r, p);
-
-        return "RELEASED|" + processId + "|" + resourceId;
     }
 
-    /**
-     * Для отладки: вывести текущее состояние графа.
-     */
     public synchronized String dumpGraph() {
         return graph.dumpGraph();
     }

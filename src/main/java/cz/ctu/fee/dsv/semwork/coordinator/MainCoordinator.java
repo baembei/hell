@@ -1,83 +1,98 @@
 package cz.ctu.fee.dsv.semwork.coordinator;
 
-import cz.ctu.fee.dsv.semwork.coordinator.Coordinator;
+import cz.ctu.fee.dsv.semwork.model.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rabbitmq.client.*;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeoutException;
+
 
 public class MainCoordinator {
 
-    // Один объект Coordinator на всё приложение (глобальный)
-    private static Coordinator coordinator;
+    private static final String REQUESTS_QUEUE = "requests_queue";
+    private static final String UPDATES_EXCHANGE = "updates_exchange";
 
-    public static void main(String[] args) throws Exception {
+    private static Coordinator coordinator;
+    private static Channel channel;
+    private static ObjectMapper mapper = new ObjectMapper();
+
+    public static void main(String[] args) {
         System.out.println("=== Coordinator is starting ===");
         coordinator = new Coordinator();
 
-        // TODO: Подключение к RabbitMQ или запуск REST. Ниже — пример, если мы делаем RabbitMQ Consumer.
-        /*
-            - Создаем соединение (ConnectionFactory, channel)
-            - Объявляем очередь, скажем, "requests_queue"
-            - Начинаем принимать сообщения
-            - В callback вызываем handleMessage(...)
-        */
+        try {
+            // 1. Подключаемся к RabbitMQ
+            ConnectionFactory factory = new ConnectionFactory();
+            factory.setHost("localhost");
+            // factory.setUsername("guest");
+            // factory.setPassword("guest");
+            Connection connection = factory.newConnection();
+            channel = connection.createChannel();
 
-        // Пример псевдокода:
+            // 2. Объявляем очередь (requests_queue) и exchange (updates_exchange)
+            channel.queueDeclare(REQUESTS_QUEUE, false, false, false, null);
+            channel.exchangeDeclare(UPDATES_EXCHANGE, BuiltinExchangeType.FANOUT);
 
-        /*
-        ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost("localhost");
-        // ... other settings ...
-        Connection connection = factory.newConnection();
-        Channel channel = connection.createChannel();
+            // 3. Подписываемся на очередь requests_queue
+            DeliverCallback deliverCb = (consumerTag, delivery) -> {
+                String body = new String(delivery.getBody(), StandardCharsets.UTF_8);
+                handleRequest(body);
+            };
+            CancelCallback cancelCb = consumerTag -> {};
+            channel.basicConsume(REQUESTS_QUEUE, true, deliverCb, cancelCb);
 
-        channel.queueDeclare("requests_queue", false, false, false, null);
-        channel.basicConsume("requests_queue", true, (consumerTag, delivery) -> {
-            String msg = new String(delivery.getBody(), StandardCharsets.UTF_8);
-            handleMessage(msg, channel);
-        }, consumerTag -> {});
-        */
-
-        System.out.println("=== Coordinator ready. Waiting for messages... ===");
-        // (приложение продолжает работать, слушая очередь)
-    }
-
-    /**
-     * Обработка входящего сообщения: форматы "REQUEST|P|R" / "RELEASE|P|R"
-     */
-    private static void handleMessage(String msg) {
-        String[] parts = msg.split("\\|");
-        if (parts.length < 3) {
-            System.out.println("Unknown message: " + msg);
-            return;
-        }
-
-        String command = parts[0];
-        String processId = parts[1];
-        String resourceId = parts[2];
-        String response;
-
-        switch (command) {
-            case "REQUEST":
-                response = coordinator.requestResource(processId, resourceId);
-                // response может быть "DENY|P|R" или "GRANT|P|R"
-                broadcast(response);
-                System.out.println(coordinator.dumpGraph());
-                break;
-            case "RELEASE":
-                response = coordinator.releaseResource(processId, resourceId);
-                // response = "RELEASED|P|R"
-                broadcast(response);
-                System.out.println(coordinator.dumpGraph());
-                break;
-            default:
-                System.out.println("Unknown command: " + command);
+            System.out.println("=== Coordinator ready. Listening for requests... ===");
+        } catch (IOException | TimeoutException e) {
+            e.printStackTrace();
         }
     }
 
     /**
-     * Рассылаем обновление всем воркерам (через exchange, например).
+     * Десериализуем JSON -> Message, смотрим type, вызываем Coordinator.
      */
-    private static void broadcast(String message) {
-        // TODO: publish в fanout-exchange "updates"
-        // или еще как-то отправить воркерам
-        System.out.println("Broadcast: " + message);
+    private static void handleRequest(String json) {
+        try {
+            Message msg = mapper.readValue(json, Message.class);
+            System.out.println("[Coordinator] Received: " + msg.getType()
+                    + " from " + msg.getProcessId() + " for " + msg.getResourceId());
+
+            switch (msg.getType()) {
+                case REQUEST_ACCESS:
+                    boolean granted = coordinator.requestResource(msg.getProcessId(), msg.getResourceId());
+                    if (granted) {
+                        broadcast(new Message(EMessageType.GRANT_ACCESS, msg.getProcessId(), msg.getResourceId()));
+                    } else {
+                        broadcast(new Message(EMessageType.DENY_ACCESS, msg.getProcessId(), msg.getResourceId()));
+                    }
+                    break;
+
+                case RELEASE_ACCESS:
+                    coordinator.releaseResource(msg.getProcessId(), msg.getResourceId());
+                    broadcast(new Message(EMessageType.RELEASE_ACCESS, msg.getProcessId(), msg.getResourceId()));
+                    break;
+
+                default:
+                    System.out.println("Unknown message type: " + msg.getType());
+            }
+            System.out.println(coordinator.dumpGraph());
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Рассылка всем воркерам (через фан-аут exchange).
+     */
+    private static void broadcast(Message msg) {
+        try {
+            String json = mapper.writeValueAsString(msg);
+            channel.basicPublish(UPDATES_EXCHANGE, "", null, json.getBytes(StandardCharsets.UTF_8));
+            System.out.println("[Coordinator] Broadcast: " + json);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
