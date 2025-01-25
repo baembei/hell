@@ -1,58 +1,39 @@
 package cz.ctu.fee.dsv.semwork.coordinator;
 
-import cz.ctu.fee.dsv.semwork.model.DependencyGraph;
-import cz.ctu.fee.dsv.semwork.model.ProcessNode;
-import cz.ctu.fee.dsv.semwork.model.ResourceNode;
+import cz.ctu.fee.dsv.semwork.model.RabbitMQService;
+import cz.ctu.fee.dsv.semwork.model.WaitForGraph;
 
 public class Coordinator {
-    private final DependencyGraph graph = new DependencyGraph();
+    private final RabbitMQService rabbitMQService;
+    private final WaitForGraph graph;
 
-    public Coordinator() {
-        System.out.println("Coordinator created (global graph init).");
+    public Coordinator(RabbitMQService rabbitMQService) {
+        this.rabbitMQService = rabbitMQService;
+        this.graph = new WaitForGraph();
     }
 
-    /**
-     * Запрос ресурса (Ломет):
-     *  1) P->R
-     *  2) Проверка цикла
-     *  3) Если цикл, откат -> DENY
-     *  4) Иначе R->P -> GRANT
-     */
-    public synchronized boolean requestResource(String processId, String resourceId) {
-        ProcessNode p = new ProcessNode(processId);
-        ResourceNode r = new ResourceNode(resourceId);
+    public void start() throws Exception {
+        System.out.println("Coordinator starting.");
+        rabbitMQService.setupQueue("requests_queue");
+        System.out.println("Before calling setupExchange...");
+        rabbitMQService.setupExchange("updates_exchange");
+        System.out.println("After calling setupExchange...");
 
-        graph.addNode(p);
-        graph.addNode(r);
-        graph.addEdge(p, r);
+        rabbitMQService.getChannel().basicConsume("requests_queue", true, (consumerTag, delivery) -> {
+            String message = new String(delivery.getBody());
+            // Логика обработки запроса (e.g., REQUEST|P1|R1)
+            System.out.println("Received: " + message);
 
-        if (graph.hasCycle()) {
-            graph.removeEdge(p, r);
-            return false; // DENY
-        }
-        // добавляем R->P
-        graph.addEdge(r, p);
-        if (graph.hasCycle()) {
-            // откат
-            graph.removeEdge(r, p);
-            graph.removeEdge(p, r);
-            return false;
-        }
-        return true; // GRANT
+            // Проверьте граф на циклы, выдайте GRANT/DENY
+            String response = processRequest(message);
+
+            // Рассылаем результат всем через exchange
+            rabbitMQService.getChannel().basicPublish("updates_exchange", "", null, response.getBytes());
+        }, consumerTag -> {});
     }
 
-    /**
-     * Освобождение ресурса
-     */
-    public synchronized void releaseResource(String processId, String resourceId) {
-        ProcessNode p = new ProcessNode(processId);
-        ResourceNode r = new ResourceNode(resourceId);
-
-        graph.removeEdge(p, r);
-        graph.removeEdge(r, p);
-    }
-
-    public synchronized String dumpGraph() {
-        return graph.dumpGraph();
+    private String processRequest(String message) {
+        // Разбираем сообщение, обновляем граф, проверяем дедлоки
+        return "GRANT|P1|R1"; // или DENY|P1|R1
     }
 }
