@@ -13,8 +13,11 @@ public class Coordinator {
     }
 
     public void start() throws Exception {
+        System.out.println("Coordinator starting.");
         rabbitMQService.setupQueue("requests_queue");
+        System.out.println("Before calling setupExchange...");
         rabbitMQService.setupExchange("updates_exchange");
+        System.out.println("After calling setupExchange...");
 
         rabbitMQService.getChannel().basicConsume("requests_queue", true, (consumerTag, delivery) -> {
             String message = new String(delivery.getBody());
