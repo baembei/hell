@@ -1,0 +1,36 @@
+rabbitmq:
+  hosts:
+    - host: "192.168.56.1"
+      port: 5672
+    - host: "192.168.50.1"
+      port: 5672
+  username: "myuser"
+  password: "mypassword"
+
+coordinator:
+  id: "coordinator1"
+  ip: "192.168.3.200"
+  port: 7070
+
+nodes:
+  - id: "node1"
+    ip: "192.168.3.201"
+    port: 7071
+  - id: "node2"
+    ip: "192.168.3.202"
+    port: 7072
+  - id: "node3"
+    ip: "192.168.3.203"
+    port: 7073
+  - id: "node4"
+    ip: "192.168.3.204"
+    port: 7074
+  - id: "node5"
+    ip: "192.168.3.205"
+    port: 7075
+
+resources:
+  - "R1"
+  - "R2"
+  - "R3"
+  - "R4"
