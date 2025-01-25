@@ -15,7 +15,7 @@ public class RabbitMQService {
     }
 
     public void connect() throws Exception {
-        System.out.println("Connecting to RabbitMQ...");
+        System.out.println("RabbitMQService: Connecting to RabbitMQ...");
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(rabbitConfig.getHosts().get(0).getHost());
         factory.setPort(rabbitConfig.getHosts().get(0).getPort());
@@ -24,19 +24,19 @@ public class RabbitMQService {
 
         try {
             this.connection = factory.newConnection();
-            System.out.println("Connection established.");
+            System.out.println("RabbitMQService: Connection established.");
             this.channel = connection.createChannel();
-            System.out.println("Channel created.");
+            System.out.println("RabbitMQService: Channel created.");
         } catch (Exception e) {
-            System.err.println("Error during RabbitMQ connection: " + e.getMessage());
-            throw e; // Прокидываем исключение для дальнейшей обработки
+            System.err.println("RabbitMQService: Error during RabbitMQ connection: " + e.getMessage());
+            throw e;
         }
     }
 
 
     public void setupQueue(String queueName) throws Exception {
         channel.queueDeclare(queueName, true, false, false, null);
-        System.out.println("Queue created.");
+        System.out.println("Queue " + queueName + " created.");
     }
 
     public void setupExchange(String exchangeName) throws Exception {

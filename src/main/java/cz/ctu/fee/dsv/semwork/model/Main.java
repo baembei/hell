@@ -8,16 +8,13 @@ public class Main {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
             System.out.println("Error: No arguments provided. Please specify 'coordinator' or a node ID.");
-            return; // Завершает выполнение программы
+            return;
         }
 
         AppConfig config = ConfigLoader.loadConfig();
         RabbitMQService rabbitMQService = new RabbitMQService(config.getRabbitmq());
 
-        System.out.println("Connecting to RabbitMQ...");
         rabbitMQService.connect();
-        rabbitMQService.setupQueue("updates_queue");
-        rabbitMQService.setupExchange("updates_exchange");
 
         if (args[0].equals("coordinator")) {
             Coordinator coordinator = new Coordinator(rabbitMQService);

@@ -13,14 +13,15 @@ public class Coordinator {
     }
 
     public void start() throws Exception {
-        System.out.println("Coordinator starting.");
+        System.out.println("Setting up queues and exchange...");
+        rabbitMQService.setupQueue("updates_queue");
         rabbitMQService.setupQueue("requests_queue");
-        System.out.println("Before calling setupExchange...");
         rabbitMQService.setupExchange("updates_exchange");
-        System.out.println("After calling setupExchange...");
+        System.out.println("Setup completed.");
 
+        System.out.println("Starting to consume requests_queue...");
         rabbitMQService.getChannel().basicConsume("requests_queue", true, (consumerTag, delivery) -> {
-            String message = new String(delivery.getBody());
+            String message = new String(delivery.getBody(), "UTF-8");
             // Логика обработки запроса (e.g., REQUEST|P1|R1)
             System.out.println("Received: " + message);
 
@@ -29,7 +30,14 @@ public class Coordinator {
 
             // Рассылаем результат всем через exchange
             rabbitMQService.getChannel().basicPublish("updates_exchange", "", null, response.getBytes());
-        }, consumerTag -> {});
+        },  consumerTag -> {
+            System.out.println("Consumer " + consumerTag + " cancelled");
+        });
+
+        // Example of sending a message
+//        String initialMessage = "REQUEST|Coordinator|R1";
+//        rabbitMQService.getChannel().basicPublish("updates_exchange", "", null, initialMessage.getBytes("UTF-8"));
+//        System.out.println("Node Coordinator sent: " + initialMessage);
     }
 
     private String processRequest(String message) {

@@ -12,6 +12,7 @@ public class Node {
     public void start() throws Exception {
         rabbitMQService.getChannel().queueBind("updates_queue", "updates_exchange", "");
 
+        System.out.println("listening to updates_queue as NODE " + nodeId);
         // Подписываемся на обменник
         rabbitMQService.getChannel().basicConsume("updates_queue", true, (consumerTag, delivery) -> {
             String message = new String(delivery.getBody());
