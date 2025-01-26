@@ -2,6 +2,7 @@ package cz.ctu.fee.dsv.semwork.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import cz.ctu.fee.dsv.semwork.APIHandler;
 import cz.ctu.fee.dsv.semwork.coordinator.Coordinator;
 import cz.ctu.fee.dsv.semwork.config.Config;
 import cz.ctu.fee.dsv.semwork.config.NodeConfig;
@@ -17,9 +18,8 @@ public class Main {
             return;
         }
 
-        // Читаем конфигурацию из config.yml
         ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        Config config = mapper.readValue(new File("config.yml"), Config.class);
+        Config config = mapper.readValue(new File("src/main/resources/config.yml"), Config.class);
 
         RabbitConfig rabbitConfig = config.getRabbitmq();
         RabbitMQService rabbitMQService = new RabbitMQService(rabbitConfig);
@@ -45,6 +45,9 @@ public class Main {
 
             Node node = new Node(nodeConfig.getId(), rabbitMQService, nodeConfig.getIp(), nodeConfig.getPort());
             node.start();
+
+            APIHandler apiHandler = new APIHandler(node);
+            apiHandler.start(7000);
         }
     }
 }

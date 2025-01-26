@@ -14,16 +14,20 @@ public class APIHandler {
         Javalin app = Javalin.create().start(port);
 
         app.post("/join", ctx -> {
-            String coordinatorIp = ctx.queryParam("ip");
-            int coordinatorPort = Integer.parseInt(ctx.queryParam("port"));
+            String rabbitIp = ctx.queryParam("rabbitIp");
+            int rabbitPort = Integer.parseInt(ctx.queryParam("rabbitPort"));
 
-            System.out.println("Received join request: " + coordinatorIp + ":" + coordinatorPort);
-            node.join(coordinatorIp, coordinatorPort);
+            System.out.println(node.getNodeId() + "is joining: " + rabbitIp + ":" + rabbitPort);
+            node.join(rabbitIp, rabbitPort);
             ctx.result("Node joined the topology.");
         });
 
         app.post("/leave", ctx -> {
-            node.leave();
+            String rabbitIp = ctx.queryParam("rabbitIp");
+            int rabbitPort = Integer.parseInt(ctx.queryParam("rabbitPort"));
+
+            System.out.println(node.getNodeId() + " is leaving: " + rabbitIp + ":" + rabbitPort);
+            node.leave(rabbitIp, rabbitPort);
             ctx.result("Node left the topology.");
         });
 
