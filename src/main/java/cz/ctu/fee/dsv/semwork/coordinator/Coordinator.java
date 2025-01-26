@@ -13,6 +13,7 @@ public class Coordinator {
     }
 
     public void start() throws Exception {
+        System.out.println("Coordinator starting...");
         System.out.println("Setting up queues and exchange...");
         rabbitMQService.setupQueue("updates_queue");
         rabbitMQService.setupQueue("requests_queue");
@@ -22,26 +23,78 @@ public class Coordinator {
         System.out.println("Starting to consume requests_queue...");
         rabbitMQService.getChannel().basicConsume("requests_queue", true, (consumerTag, delivery) -> {
             String message = new String(delivery.getBody(), "UTF-8");
-            // Логика обработки запроса (e.g., REQUEST|P1|R1)
-            System.out.println("Received: " + message);
+            System.out.println("Coordinator received: " + message);
 
-            // Проверьте граф на циклы, выдайте GRANT/DENY
-            String response = processRequest(message);
+            // Handle the message
+            String response = handleMessage(message);
 
-            // Рассылаем результат всем через exchange
+            // Publish the result to all nodes via exchange
             rabbitMQService.getChannel().basicPublish("updates_exchange", "", null, response.getBytes());
-        },  consumerTag -> {
+        }, consumerTag -> {
             System.out.println("Consumer " + consumerTag + " cancelled");
         });
 
-        // Example of sending a message
-//        String initialMessage = "REQUEST|Coordinator|R1";
-//        rabbitMQService.getChannel().basicPublish("updates_exchange", "", null, initialMessage.getBytes("UTF-8"));
-//        System.out.println("Node Coordinator sent: " + initialMessage);
+        System.out.println("Coordinator is listening for requests...");
     }
 
-    private String processRequest(String message) {
-        // Разбираем сообщение, обновляем граф, проверяем дедлоки
-        return "GRANT|P1|R1"; // или DENY|P1|R1
+    private String handleMessage(String message) {
+        String[] parts = message.split("\\|");
+        String requestType = parts[0];
+        String processId = parts[1];
+        String resource = parts.length > 2 ? parts[2] : "";
+
+        switch (requestType) {
+            case "JOIN":
+                return processJoin(processId);
+            case "PRELIMINARY_REQUEST":
+                return processPreliminaryRequest(processId, resource);
+            case "REQUEST":
+                return processRequest(processId, resource);
+            case "ACQUIRE":
+                return processAcquire(processId, resource);
+            case "RELEASE":
+                return processRelease(processId, resource);
+            default:
+                System.out.println("Unknown request type: " + requestType);
+                return "";
+        }
+    }
+
+    private String processRelease(String processId, String resource) {
+        return processId;
+    }
+
+    private String processAcquire(String processId, String resource) {
+        return processId;
+    }
+
+    private String processPreliminaryRequest(String processId, String resource) {
+        if (graph.canGrantAccess(processId, resource)) {
+            System.out.println("Preliminary grant for " + processId + " to access " + resource);
+            return "PRELIMINARY_GRANT|" + processId + "|" + resource;
+        } else {
+            System.out.println("Preliminary deny for " + processId + " to access " + resource);
+            return "PRELIMINARY_DENY|" + processId + "|" + resource;
+        }
+    }
+
+    private String processRequest(String processId, String resource) {
+        if (graph.canGrantAccess(processId, resource)) {
+            graph.addDependency(processId, resource);
+            return "GRANT|" + processId + "|" + resource;
+        } else {
+            return "DENY|" + processId + "|" + resource;
+        }
+    }
+
+    private String processJoin(String processId) {
+        System.out.println("Node " + processId + " joined.");
+        return "JOIN_CONFIRMED|" + processId;
+    }
+
+    private String processKill(String processId) {
+        // Implement the logic for processing a KILL request
+        System.out.println("Node " + processId + " killed.");
+        return "KILL_CONFIRMED|" + processId;
     }
 }

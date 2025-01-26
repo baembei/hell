@@ -7,26 +7,26 @@ rabbitmq:
   username: "myuser"
   password: "mypassword"
 
-coordinator:
-  id: "coordinator1"
-  ip: "192.168.3.200"
-  port: 7070
+#coordinator:
+#  id: "coordinator1"
+#  ip: "192.168.3.200"
+#  port: 7070
 
 nodes:
   - id: "node1"
-    ip: "192.168.3.201"
+    ip: "192.168.156.101"
     port: 7071
   - id: "node2"
-    ip: "192.168.3.202"
+    ip: "192.168.156.102"
     port: 7072
   - id: "node3"
-    ip: "192.168.3.203"
+    ip: "192.168.156.103"
     port: 7073
   - id: "node4"
-    ip: "192.168.3.204"
+    ip: "192.168.156.104"
     port: 7074
   - id: "node5"
-    ip: "192.168.3.205"
+    ip: "192.168.156.105"
     port: 7075
 
 resources:
