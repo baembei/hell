@@ -2,17 +2,12 @@ package cz.ctu.fee.dsv.semwork.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * Общая структура сообщения (JSON), которое
- * мы шлем через RabbitMQ.
- */
 public class Message {
 
-    private EMessageType type;  // REQUEST_ACCESS, GRANT_ACCESS, ...
-    private String processId;   // "P1", "P2" ...
-    private String resourceId;  // "R1", "R2" ...
+    private EMessageType type;
+    private String processId;
+    private String resourceId;
 
-    // Пустой конструктор для Jackson
     public Message() {}
 
     public Message(EMessageType type, String processId, String resourceId) {
@@ -45,7 +40,6 @@ public class Message {
         this.resourceId = resourceId;
     }
 
-    // Фабричные методы, по желанию
     public static Message request(String p, String r) {
         return new Message(EMessageType.REQUEST_ACCESS, p, r);
     }

@@ -1,8 +1,8 @@
 package cz.ctu.fee.dsv.semwork.model;
 
-import java.util.ArrayList;
-import java.util.List;
+import lombok.Data;
 
+@Data
 public class Node {
     private final String nodeId;
     private final String ip;
@@ -21,7 +21,7 @@ public class Node {
     }
 
     public void start() throws Exception {
-        System.out.println("Node " + nodeId + " joining...");
+        System.out.println("Node " + nodeId + " starting...");
 
         rabbitMQService.getChannel().queueBind("updates_queue", "updates_exchange", "");
         rabbitMQService.getChannel().basicConsume("updates_queue", true, (consumerTag, delivery) -> {
@@ -33,7 +33,6 @@ public class Node {
         System.out.println("Node " + nodeId + " listening for updates...");
     }
 
-    // Метод для отправки запроса координатору
     public void sendRequest(String resource) throws Exception {
         String request = "REQUEST|" + nodeId + "|" + resource;
         rabbitMQService.getChannel().basicPublish("", "requests_queue", null, request.getBytes());
@@ -51,23 +50,45 @@ public class Node {
         }
     }
 
-    public void join(String ip, int port) {
-        System.out.println("Node " + nodeId + " joining the topology at IP " + ip + " and port " + port + "...");
+    public void join(String rabbotIp, int rabbitPort) {
+        System.out.println("Node " + nodeId + " joining the topology at IP " + rabbotIp + " and port " + rabbitPort + "...");
         try {
-            rabbitMQService.getChannel().queueBind("updates_queue", "updates_exchange", "");
-            rabbitMQService.getChannel().basicConsume("updates_queue", true, (consumerTag, delivery) -> {
-                String message = new String(delivery.getBody());
-                System.out.println("Node " + nodeId + " received: " + message);
-                processUpdate(message);
-            }, consumerTag -> {});
-            System.out.println("Node " + nodeId + " listening for updates...");
+            String message = "JOIN|" + nodeId + "|" + rabbotIp + "|" + rabbitPort;
+            rabbitMQService.getChannel().basicPublish("", "requests_queue", null, message.getBytes());
+            System.out.println("Node " + nodeId + " sent join message: " + message);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public void leave() {
-        System.out.println("Node " + nodeId + " leaving the topology...");
+    public void leave(String rabbitIp, int rabbitPort) {
+        System.out.println("Node " + nodeId + " leaving the topology at IP " + rabbitIp + " and port " + rabbitPort + "...");
+        try {
+            String message = "LEAVE|" + nodeId;
+            rabbitMQService.getChannel().basicPublish("", "requests_queue", null, message.getBytes());
+            System.out.println("Node " + nodeId + " sent leave message: " + message);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Simulate node failure
+    public void kill() {
+        System.out.println("Node " + nodeId + " is now down.");
+        this.isAlive = false;
+        String killMessage = "KILL|" + nodeId;
+        try {
+            rabbitMQService.getChannel().basicPublish("", "requests_queue", null, killMessage.getBytes());
+            System.out.println("Node " + nodeId + " sent kill message: " + killMessage);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Simulate node revival
+    public void revive() {
+        System.out.println("Node " + nodeId + " is back online.");
+        this.isAlive = true;
     }
 
     public void sendPreliminaryRequest(String resource) throws Exception {
@@ -96,25 +117,6 @@ public class Node {
     // Status
     public void printStatus() {
         System.out.println(getStatus());
-    }
-
-    // Simulate node failure
-    public void kill() {
-        System.out.println("Node " + nodeId + " is now down.");
-        this.isAlive = false;
-        String killMessage = "KILL|" + nodeId;
-        try {
-            rabbitMQService.getChannel().basicPublish("", "requests_queue", null, killMessage.getBytes());
-            System.out.println("Node " + nodeId + " sent kill message: " + killMessage);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    // Simulate node revival
-    public void revive() {
-        System.out.println("Node " + nodeId + " is back online.");
-        this.isAlive = true;
     }
 
     public String getStatus() {

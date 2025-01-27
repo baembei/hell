@@ -24,11 +24,7 @@ public class Coordinator {
         rabbitMQService.getChannel().basicConsume("requests_queue", true, (consumerTag, delivery) -> {
             String message = new String(delivery.getBody(), "UTF-8");
             System.out.println("Coordinator received: " + message);
-
-            // Handle the message
             String response = handleMessage(message);
-
-            // Publish the result to all nodes via exchange
             rabbitMQService.getChannel().basicPublish("updates_exchange", "", null, response.getBytes());
         }, consumerTag -> {
             System.out.println("Consumer " + consumerTag + " cancelled");
@@ -54,6 +50,8 @@ public class Coordinator {
                 return processAcquire(processId, resource);
             case "RELEASE":
                 return processRelease(processId, resource);
+            case "JOIN_CONFIRMED":
+                return processJoin(processId);
             default:
                 System.out.println("Unknown request type: " + requestType);
                 return "";
@@ -93,7 +91,6 @@ public class Coordinator {
     }
 
     private String processKill(String processId) {
-        // Implement the logic for processing a KILL request
         System.out.println("Node " + processId + " killed.");
         return "KILL_CONFIRMED|" + processId;
     }
