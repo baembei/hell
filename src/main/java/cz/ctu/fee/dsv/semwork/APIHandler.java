@@ -19,26 +19,24 @@ public class APIHandler {
 
             System.out.println(node.getNodeId() + "is joining: " + rabbitIp + ":" + rabbitPort);
             node.join(rabbitIp, rabbitPort);
-            ctx.result("Node joined the topology.");
+            ctx.result("JOIN DONE.");
         });
 
         app.post("/leave", ctx -> {
             String rabbitIp = ctx.queryParam("rabbitIp");
             int rabbitPort = Integer.parseInt(ctx.queryParam("rabbitPort"));
-
-            System.out.println(node.getNodeId() + " is leaving: " + rabbitIp + ":" + rabbitPort);
-            node.leave(rabbitIp, rabbitPort);
-            ctx.result("Node left the topology.");
+            node.leave();
+            ctx.result("Node " + node.getNodeId() + " left.");
         });
 
         app.post("/kill", ctx -> {
             node.kill();
-            ctx.result("Node has been killed.");
+            ctx.result("Node " + node.getNodeId() + " is dead.");
         });
 
         app.post("/revive", ctx -> {
             node.revive();
-            ctx.result("Node revived.");
+            ctx.result("Node " + node.getNodeId() + " is back.");
         });
 
         app.get("/status", ctx -> {

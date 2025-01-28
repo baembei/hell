@@ -21,7 +21,7 @@ public class Node {
     }
 
     public void start() throws Exception {
-        System.out.println("Node " + nodeId + " starting...");
+        System.out.println("Node " + nodeId + " connecting to RabbitMQ...");
 
         rabbitMQService.getChannel().queueBind("updates_queue", "updates_exchange", "");
         rabbitMQService.getChannel().basicConsume("updates_queue", true, (consumerTag, delivery) -> {
@@ -50,23 +50,22 @@ public class Node {
         }
     }
 
-    public void join(String rabbotIp, int rabbitPort) {
-        System.out.println("Node " + nodeId + " joining the topology at IP " + rabbotIp + " and port " + rabbitPort + "...");
+    public void join(String rabbitIp, int rabbitPort) {
+        System.out.println("Node " + nodeId + " trying to join the topology at IP " + rabbitIp + " and port " + rabbitPort + "...");
         try {
-            String message = "JOIN|" + nodeId + "|" + rabbotIp + "|" + rabbitPort;
-            rabbitMQService.getChannel().basicPublish("", "requests_queue", null, message.getBytes());
-            System.out.println("Node " + nodeId + " sent join message: " + message);
+           start();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public void leave(String rabbitIp, int rabbitPort) {
-        System.out.println("Node " + nodeId + " leaving the topology at IP " + rabbitIp + " and port " + rabbitPort + "...");
+    public void leave() {
+        System.out.println("Node " + nodeId + " leaving the topology");
         try {
             String message = "LEAVE|" + nodeId;
             rabbitMQService.getChannel().basicPublish("", "requests_queue", null, message.getBytes());
             System.out.println("Node " + nodeId + " sent leave message: " + message);
+            rabbitMQService.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -74,12 +73,13 @@ public class Node {
 
     // Simulate node failure
     public void kill() {
-        System.out.println("Node " + nodeId + " is now down.");
         this.isAlive = false;
-        String killMessage = "KILL|" + nodeId;
         try {
-            rabbitMQService.getChannel().basicPublish("", "requests_queue", null, killMessage.getBytes());
-            System.out.println("Node " + nodeId + " sent kill message: " + killMessage);
+            if (rabbitMQService != null) {
+                rabbitMQService.close();
+            } else {
+                System.out.println("RabbitMQService is already null.");
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -87,7 +87,6 @@ public class Node {
 
     // Simulate node revival
     public void revive() {
-        System.out.println("Node " + nodeId + " is back online.");
         this.isAlive = true;
     }
 
