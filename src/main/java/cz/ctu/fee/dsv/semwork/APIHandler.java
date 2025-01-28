@@ -23,8 +23,6 @@ public class APIHandler {
         });
 
         app.post("/leave", ctx -> {
-            String rabbitIp = ctx.queryParam("rabbitIp");
-            int rabbitPort = Integer.parseInt(ctx.queryParam("rabbitPort"));
             node.leave();
             ctx.result("Node " + node.getNodeId() + " left.");
         });
