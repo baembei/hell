@@ -11,7 +11,9 @@ public class APIHandler {
     }
 
     public void start(int port) {
-        Javalin app = Javalin.create().start(port);
+        Javalin app = Javalin.create(config -> {
+            config.showJavalinBanner = false;
+        }).start("0.0.0.0", port);
 
         app.post("/join", ctx -> {
             String rabbitIp = ctx.queryParam("rabbitIp");
@@ -37,7 +39,8 @@ public class APIHandler {
             ctx.result("Node " + node.getNodeId() + " is back.");
         });
 
-        app.get("/status", ctx -> {
+        app.get("/get_status", ctx -> {
+            System.out.println("Getting status of this node");
             ctx.result(node.getStatus());
         });
     }

@@ -42,12 +42,13 @@ public class Main {
             }
 
             NodeConfig nodeConfig = nodeConfigOpt.get();
+            int nodePort = nodeConfig.getPort();
 
             Node node = new Node(nodeConfig.getId(), rabbitMQService, nodeConfig.getIp(), nodeConfig.getPort());
             node.start();
 
             APIHandler apiHandler = new APIHandler(node);
-            apiHandler.start(7000);
+            apiHandler.start(nodePort);
         }
     }
 }
