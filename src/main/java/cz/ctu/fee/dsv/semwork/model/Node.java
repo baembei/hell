@@ -21,15 +21,12 @@ public class Node {
     }
 
     public void start() throws Exception {
-        System.out.println("Node " + nodeId + " connecting to RabbitMQ...");
-
         rabbitMQService.getChannel().queueBind("updates_queue", "updates_exchange", "");
         rabbitMQService.getChannel().basicConsume("updates_queue", true, (consumerTag, delivery) -> {
             String message = new String(delivery.getBody());
             System.out.println("Node " + nodeId + " received: " + message);
             processUpdate(message);
         }, consumerTag -> {});
-
         System.out.println("Node " + nodeId + " listening for updates...");
     }
 
@@ -50,11 +47,13 @@ public class Node {
         }
     }
 
-    public void join(String rabbitIp, int rabbitPort) {
-        System.out.println("Node " + nodeId + " trying to join the topology at IP " + rabbitIp + " and port " + rabbitPort + "...");
+    public void join() {
         try {
             rabbitMQService.connect();
             start();
+            if(!isAlive){
+                isAlive=true;
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
