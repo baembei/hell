@@ -53,7 +53,8 @@ public class Node {
     public void join(String rabbitIp, int rabbitPort) {
         System.out.println("Node " + nodeId + " trying to join the topology at IP " + rabbitIp + " and port " + rabbitPort + "...");
         try {
-           start();
+            rabbitMQService.connect();
+            start();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -88,6 +89,12 @@ public class Node {
     // Simulate node revival
     public void revive() {
         this.isAlive = true;
+        try {
+            rabbitMQService.connect();
+            start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void sendPreliminaryRequest(String resource) throws Exception {
