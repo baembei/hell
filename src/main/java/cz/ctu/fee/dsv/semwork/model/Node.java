@@ -30,12 +30,6 @@ public class Node {
         System.out.println("Node " + nodeId + " listening for updates...");
     }
 
-    public void sendRequest(String resource) throws Exception {
-        String request = "REQUEST|" + nodeId + "|" + resource;
-        rabbitMQService.getChannel().basicPublish("", "requests_queue", null, request.getBytes());
-        System.out.println("Node " + nodeId + " sent: " + request);
-    }
-
     // Method to handle incoming messages from the coordinator
     private void processUpdate(String message) {
         if (message.startsWith("UPDATE_GRAPH")) {
@@ -51,9 +45,13 @@ public class Node {
         try {
             rabbitMQService.connect();
             start();
+
             if(!isAlive){
                 isAlive=true;
             }
+
+            String message = "JOIN|" + nodeId;
+            rabbitMQService.getChannel().basicPublish("", "requests_queue", null, message.getBytes());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -96,35 +94,39 @@ public class Node {
         }
     }
 
-    public void sendPreliminaryRequest(String resource) throws Exception {
-        String request = "PRELIMINARY_REQUEST|" + nodeId + "|" + resource;
-        rabbitMQService.getChannel().basicPublish("", "requests_queue", null, request.getBytes());
-        System.out.println("Node " + nodeId + " sent preliminary request: " + request);
-    }
-
-    public void acquireResource(String resource) throws Exception {
-        String message = "ACQUIRE|" + nodeId + "|" + resource;
-        rabbitMQService.getChannel().basicPublish("", "requests_queue", null, message.getBytes());
-        System.out.println("Node " + nodeId + " acquired resource: " + resource);
-    }
-
-    private String processAcquire(String processId, String resource) {
-        graph.markResourceAcquired(processId, resource);
-        return "ACQUIRE_CONFIRMED|" + processId + "|" + resource;
-    }
-
-    public void releaseResource(String resource) throws Exception {
-        String message = "RELEASE|" + nodeId + "|" + resource;
-        rabbitMQService.getChannel().basicPublish("", "requests_queue", null, message.getBytes());
-        System.out.println("Node " + nodeId + " released resource: " + resource);
-    }
-
-    // Status
-    public void printStatus() {
-        System.out.println(getStatus());
-    }
-
     public String getStatus() {
         return "Node ID: " + nodeId + ", Alive: " + isAlive;
+    }
+
+    public void sendPreliminaryRequest(Resource resource1, Resource resource2) throws Exception {
+        String request = "PRELIMINARY_REQUEST|" + nodeId + "|" + resource1.getResourceId() + "|" + resource2.getResourceId();
+        rabbitMQService.getChannel().basicPublish("", "requests_queue", null, request.getBytes());
+        System.out.println("Node " + nodeId + " sent: " + request);
+    }
+
+    public void sendRequest(Resource resource) throws Exception {
+        String request = "REQUEST|" + nodeId + "|" + resource;
+        rabbitMQService.getChannel().basicPublish("", "requests_queue", null, request.getBytes());
+        System.out.println("Node " + nodeId + " sent: " + request);
+    }
+
+    public void acquireResource(Resource resource) throws Exception {
+        if (resource.getStatus() == EResourceStatus.FREE) {
+            resource.acquire();
+            System.out.println("Node " + nodeId + " acquired resource: " + resource.getResourceId());
+        } else {
+            System.out.println("Node " + nodeId + " tried to acquire resource " + resource.getResourceId() + " but it's already taken!");
+        }
+    }
+
+    public void releaseResource(Resource resource) throws Exception {
+        if(resource.getStatus() == EResourceStatus.OCCUPIED){
+            resource.release();
+            System.out.println("Node " + nodeId + " released resource: " + resource.getResourceId());
+        } else {
+            System.out.println("Node " + nodeId + " tried to release resource " + resource.getResourceId() + " but it's already free!");
+        }
+
+        rabbitMQService.getChannel().basicPublish("", "updates_queue", null, ("RELEASE|" + nodeId + "|" + resource.getResourceId()).getBytes());
     }
 }

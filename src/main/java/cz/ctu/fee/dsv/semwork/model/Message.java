@@ -44,6 +44,6 @@ public class Message {
         return new Message(EMessageType.REQUEST_ACCESS, p, r);
     }
     public static Message release(String p, String r) {
-        return new Message(EMessageType.RELEASE_ACCESS, p, r);
+        return new Message(EMessageType.RELEASE, p, r);
     }
 }
