@@ -6,31 +6,57 @@ import java.util.Map;
 import java.util.Set;
 
 public class WaitForGraph {
+    // Key: the process that depends on others
+    // Value: the set of processes it depends on
     private final Map<String, Set<String>> dependencies = new HashMap<>();
 
-    public void addDependency(String processId, String resource) {
-        dependencies.computeIfAbsent(processId, k -> new HashSet<>()).add(resource);
+    /**
+     * Add a dependency: from → to
+     * (from depends on to)
+     */
+    public void addDependency(String from, String to) {
+        dependencies
+                .computeIfAbsent(from, k -> new HashSet<>())
+                .add(to);
     }
 
-    public void removeDependency(String processId, String resource) {
-        if (dependencies.containsKey(processId)) {
-            dependencies.get(processId).remove(resource);
-            if (dependencies.get(processId).isEmpty()) {
-                dependencies.remove(processId);
+    /**
+     * Remove a specific dependency: from → to
+     */
+    public void removeDependency(String from, String to) {
+        Set<String> deps = dependencies.get(from);
+        if (deps != null) {
+            deps.remove(to);
+            if (deps.isEmpty()) {
+                dependencies.remove(from);
             }
         }
     }
 
-    public boolean canGrantAccess(String processId, String resource) {
-        // Проверяем, вызовет ли добавление зависимости дедлок
-        return !detectDeadlock(processId, resource);
+    /**
+     * Remove all dependencies of a given process.
+     * This effectively removes all edges: processId → X.
+     */
+    public void removeAllDependencies(String processId) {
+        dependencies.remove(processId);
     }
 
-    private boolean detectDeadlock(String processId, String resource) {
-        // Реализуйте логику проверки дедлоков
-        return false;
+    /**
+     * Completely remove a process from the graph,
+     * including both outgoing and incoming edges.
+     * Typically used when the process leaves or terminates.
+     */
+    public void removeNode(String processId) {
+        // 1) Remove all outgoing edges from the given process
+        dependencies.remove(processId);
+        // 2) Remove all incoming edges pointing to the given process
+        for (Set<String> depSet : dependencies.values()) {
+            depSet.remove(processId);
+        }
     }
 
-    public void markResourceAcquired(String processId, String resource) {
+    @Override
+    public String toString() {
+        return dependencies.toString();
     }
 }

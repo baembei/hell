@@ -52,52 +52,203 @@ public class Coordinator {
 
         System.out.println("Coordinator is listening for requests...");
     }
+ private String processJoin(String processId, String ip, int port) {
+        Node existingNode = nodes.get(processId);
+
+        if (existingNode == null) {
+            Node newNode = new Node(processId, rabbitMQService, ip, port);
+            newNode.setGraph(graph);
+            nodes.put(processId, newNode);
+            newNode.join();
+            return "JOIN|OK (created new)";
+        } else {
+            existingNode.join();
+            return "JOIN|OK (already existed)";
+        }
+    }
 
     private String handleMessage(String message) {
         String[] parts = message.split("\\|");
         String requestType = parts[0];
-        String processId = parts[1];
-
-        String resource1 = parts.length > 2 ? parts[2] : "";
-        String resource2 = parts.length > 3 ? parts[3] : "";
-
-        Resource res1 = resources.get(resource1);
-        Resource res2 = resources.get(resource2);
-        Node process = nodes.get(processId);
+        String processId = (parts.length > 1) ? parts[1] : null;
 
         switch (requestType) {
             case "JOIN":
-                return processJoin(processId);
-            case "PRELIMINARY_REQUEST":
-                return processPreliminaryRequest(process, res1, res2);
-//            case "REQUEST":
-//                return processRequest(processId, resource);
-//            case "ACQUIRE":
-//                return processAcquire(processId, resource);
-//            case "RELEASE":
-//                return processRelease(processId, resource);
+                // JOIN|<processId>|<ip>|<port>
+                if (parts.length >= 4) {
+                    String ip = parts[2];
+                    int port = Integer.parseInt(parts[3]);
+                    return processJoin(processId, ip, port);
+                } else {
+                    return "JOIN|FAIL|BAD_ARGUMENTS";
+                }
+
+            case "REQUEST":
+                // REQUEST|<processId>|<resource>
+                if (parts.length >= 3) {
+                    String resource = parts[2];
+                    return processRequest(processId, resource);
+                } else {
+                    return "REQUEST|FAIL|BAD_ARGUMENTS";
+                }
+
+            case "ACQUIRE":
+                // ACQUIRE|<processId>|<resource>
+                if (parts.length >= 3) {
+                    String resource = parts[2];
+                    return processAcquire(processId, resource);
+                } else {
+                    return "ACQUIRE|FAIL|BAD_ARGUMENTS";
+                }
+
+            case "RELEASE":
+                // RELEASE|<processId>|<resource>
+                if (parts.length >= 3) {
+                    String resource = parts[2];
+                    return processRelease(processId, resource);
+                } else {
+                    return "RELEASE|FAIL|BAD_ARGUMENTS";
+                }
+
             case "LEAVE":
-                return processLeave(processId);
+                // LEAVE|<processId>
+                if (parts.length >= 2) {
+                    return processLeave(processId);
+                } else {
+                    return "LEAVE|FAIL|BAD_ARGUMENTS";
+                }
+
+            case "PRELIMINARY_REQUEST":
+                // PRELIMINARY_REQUEST|<processId>|<res1>|<res2>
+                if (parts.length >= 4) {
+                    String res1 = parts[2];
+                    String res2 = parts[3];
+                    return processPreliminaryRequest(nodes.get(processId),
+                            resources.get(res1),
+                            resources.get(res2));
+                } else {
+                    return "PRELIMINARY_REQUEST|FAIL|BAD_ARGUMENTS";
+                }
+
             default:
-                System.out.println("Unknown request type: " + requestType);
-                return "";
+                return "UNKNOWN|FAIL|INVALID_REQUEST_TYPE";
         }
     }
 
+
+
+
+    // NODE LEAVING
     private String processLeave(String processId) {
-        return ".";
+        Node process = nodes.get(processId);
+
+        if (process == null) {
+            return "LEAVE|FAIL|NO_SUCH_NODE";
+        }
+
+        // 1) Release all resources owned/requested by the process
+        for (Resource r : resources.values()) {
+            if (processId.equals(r.getOwner())) {
+                r.setOwner(null);
+                r.setStatus(EResourceStatus.FREE);
+            }
+            if (processId.equals(r.getRequestedBy())) {
+                r.setRequestedBy(null);
+                r.setStatus(EResourceStatus.FREE);
+            }
+        }
+
+        // 2) Delete all dependencies related to the process
+        graph.removeAllDependencies(processId);
+
+        // 3) Delete the process from the list of nodes
+        nodes.remove(processId);
+
+        return "LEAVE|OK|" + processId;
     }
 
-    private String processRelease(String processId, String resource) {
-        return ".";
+    // Release a resource, if the process is the owner
+    private String processRelease(String processId, String resourceId) {
+        Node process = nodes.get(processId);
+        Resource resource = resources.get(resourceId);
+
+        if (process == null) {
+            return "RELEASE|FAIL|NO_SUCH_NODE";
+        }
+        if (resource == null) {
+            return "RELEASE|FAIL|NO_SUCH_RESOURCE";
+        }
+
+        // Check if the resource is occupied and owned by the process
+        if (resource.getStatus() == EResourceStatus.OCCUPIED
+                && processId.equals(resource.getOwner())) {
+
+            resource.setStatus(EResourceStatus.FREE);
+            resource.setOwner(null);
+
+            return "RELEASE|OK|" + processId + "|" + resourceId;
+        } else {
+            return "RELEASE|FAIL|NOT_OWNER";
+        }
     }
 
-    private String processAcquire(String processId, String resource) {
-        return ".";
+    // Acquire a resource, if it is in WAITING state for the exact process
+    private String processAcquire(String processId, String resourceId) {
+        Node process = nodes.get(processId);
+        Resource resource = resources.get(resourceId);
+
+        if (process == null) {
+            return "ACQUIRE|FAIL|NO_SUCH_NODE";
+        }
+        if (resource == null) {
+            return "ACQUIRE|FAIL|NO_SUCH_RESOURCE";
+        }
+
+        // Check if the resource is in WAITING state and requested by the process
+        if (resource.getStatus() == EResourceStatus.WAITING
+                && processId.equals(resource.getRequestedBy())) {
+
+            // Now the process can acquire the resource
+            resource.setStatus(EResourceStatus.OCCUPIED);
+            resource.setOwner(processId);
+            resource.setRequestedBy(null);
+
+            return "ACQUIRE|OK|" + processId + "|" + resourceId;
+        } else {
+            // Resource is not in WAITING state for the process
+            return "ACQUIRE|FAIL|NOT_WAITING_FOR_YOU";
+        }
     }
 
-    private String processRequest(String processId, String resource) {
-        return ".";
+    private String processRequest(String processId, String resourceId) {
+
+        Node process = nodes.get(processId);
+        Resource resource = resources.get(resourceId);
+
+        if (process == null) {
+            return "REQUEST|FAIL|NO_SUCH_NODE";
+        }
+        if (resource == null) {
+            return "REQUEST|FAIL|NO_SUCH_RESOURCE";
+        }
+
+        //If the resource is free, the process can request it
+        if (resource.getStatus() == EResourceStatus.FREE) {
+            resource.setStatus(EResourceStatus.WAITING);
+            resource.setRequestedBy(processId);
+
+            return "REQUEST|GRANT|" + processId + "|" + resourceId;
+        } else {
+            // Resource is not free, so we need to check if the process can request it
+            // Add dependency to the graph if the resource is occupied
+            if (resource.getStatus() == EResourceStatus.OCCUPIED) {
+                graph.addDependency(processId, resource.getOwner());
+            } else if (resource.getStatus() == EResourceStatus.WAITING) {
+                graph.addDependency(processId, resource.getRequestedBy());
+            }
+
+            return "REQUEST|DENY|" + processId + "|" + resourceId;
+        }
     }
 
     private String processJoin(String processId) {

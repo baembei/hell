@@ -46,11 +46,11 @@ public class Node {
             rabbitMQService.connect();
             start();
 
-            if(!isAlive){
-                isAlive=true;
+            if (!isAlive) {
+                isAlive = true;
             }
 
-            String message = "JOIN|" + nodeId;
+            String message = "JOIN|" + nodeId + "|" + ip + "|" + port;
             rabbitMQService.getChannel().basicPublish("", "requests_queue", null, message.getBytes());
         } catch (Exception e) {
             e.printStackTrace();
@@ -87,8 +87,7 @@ public class Node {
     public void revive() {
         this.isAlive = true;
         try {
-            rabbitMQService.connect();
-            start();
+            join();
         } catch (Exception e) {
             e.printStackTrace();
         }

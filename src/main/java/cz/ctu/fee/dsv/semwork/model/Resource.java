@@ -7,6 +7,7 @@ public class Resource {
     private final String resourceId;
     private EResourceStatus status;
     private String owner;
+    private String requestedBy;
 
     public Resource(String resourceId) {
         this.resourceId = resourceId;
