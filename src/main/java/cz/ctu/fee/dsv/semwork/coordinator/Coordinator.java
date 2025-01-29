@@ -140,9 +140,6 @@ public class Coordinator {
         }
     }
 
-
-
-
     // NODE LEAVING
     private String processLeave(String processId) {
         Node process = nodes.get(processId);
@@ -218,12 +215,42 @@ public class Coordinator {
             resource.setOwner(processId);
             resource.setRequestedBy(null);
 
+            checkPreliminaryConflicts(processId, resourceId);
+
             return "ACQUIRE|OK|" + processId + "|" + resourceId;
         } else {
             // Resource is not in WAITING state for the process
             return "ACQUIRE|FAIL|NOT_WAITING_FOR_YOU";
         }
     }
+
+    private void checkPreliminaryConflicts(String ownerProcessId, String resourceId) {
+        for (Map.Entry<String, Set<String>> entry : preliminaryRequests.entrySet()) {
+            // Check if the other process wanted the resource
+            String otherProcessId = entry.getKey();
+            // Skip the owner process
+            if (otherProcessId.equals(ownerProcessId)) {
+                continue;
+            }
+
+            Set<String> wantedResources = entry.getValue();
+            if (wantedResources.contains(resourceId)) {
+                // otherProcessId wanted the resource, but now it must wait
+                // because ownerProcessId acquired it and now there is a dependency
+                // otherProcessId -> ownerProcessId
+                graph.addDependency(otherProcessId, ownerProcessId);
+
+                System.out.println("Added dependency " + otherProcessId
+                        + " -> " + ownerProcessId
+                        + " because " + ownerProcessId
+                        + " acquired " + resourceId
+                        + " which " + otherProcessId
+                        + " had in preliminaryRequests."
+                );
+            }
+        }
+    }
+
 
     private String processRequest(String processId, String resourceId) {
 
@@ -243,14 +270,31 @@ public class Coordinator {
             resource.setRequestedBy(processId);
 
             System.out.println("Resource status: " + resource.getStatus());
-            return "REQUEST|GRANT|" + processId + "|" + resourceId;
+            return "REQUEST|OK|" + processId + "|" + resourceId;
         } else {
-            // Resource is not free, so we need to check if the process can request it
-            // Add dependency to the graph if the resource is occupied
+            String ownerOrRequester;
             if (resource.getStatus() == EResourceStatus.OCCUPIED) {
-                graph.addDependency(processId, resource.getOwner());
-            } else if (resource.getStatus() == EResourceStatus.WAITING) {
-                graph.addDependency(processId, resource.getRequestedBy());
+                if (processId.equals(resource.getOwner())) {
+                    return "REQUEST|FAIL|ALREADY_OWNED";
+                }
+                ownerOrRequester = resource.getOwner();
+            } else { // WAITING
+                if (processId.equals(resource.getRequestedBy())) {
+                    return "REQUEST|FAIL|ALREADY_REQUESTED";
+                }
+                ownerOrRequester = resource.getRequestedBy();
+            }
+
+            // Add dependency to the graph if the resource is occupied or waiting
+            graph.addDependency(processId, ownerOrRequester);
+
+            System.out.println("ALL DEPENDENCIES: " + graph.getDependencies());
+
+            if (graph.hasCycle()) {
+                //If there is a cycle, remove the dependency and deny the request
+                graph.removeDependency(processId, ownerOrRequester);
+                System.out.println("ALL DEPENDENCIES: " + graph.getDependencies());
+                return "REQUEST|DENY|CYCLE_DETECTED|" + processId + "|" + resourceId;
             }
 
             return "REQUEST|DENY|" + processId + "|" + resourceId;

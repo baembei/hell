@@ -1,10 +1,10 @@
 package cz.ctu.fee.dsv.semwork.model;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import lombok.Data;
 
+import java.util.*;
+
+@Data
 public class WaitForGraph {
     // Key: the process that depends on others
     // Value: the set of processes it depends on
@@ -42,17 +42,49 @@ public class WaitForGraph {
     }
 
     /**
-     * Completely remove a process from the graph,
-     * including both outgoing and incoming edges.
-     * Typically used when the process leaves or terminates.
+     * Returns true if there is a cycle (deadlock) in the graph.
      */
-    public void removeNode(String processId) {
-        // 1) Remove all outgoing edges from the given process
-        dependencies.remove(processId);
-        // 2) Remove all incoming edges pointing to the given process
-        for (Set<String> depSet : dependencies.values()) {
-            depSet.remove(processId);
+    public boolean hasCycle() {
+        Set<String> visited = new HashSet<>();
+        Set<String> recursionStack = new HashSet<>();
+        for (String processId : dependencies.keySet()) {
+            if (!visited.contains(processId)) {
+                if (dfsDetectCycle(processId, visited, recursionStack)) {
+                    return true;
+                }
+            }
         }
+        return false;
+    }
+
+    /**
+     * Helper method to detect a cycle (DFS).
+     */
+    private boolean dfsDetectCycle(String current,
+                                   Set<String> visited,
+                                   Set<String> recursionStack) {
+        visited.add(current);
+        recursionStack.add(current);
+
+        // Processes that 'current' depends on
+        Set<String> dependents = dependencies.getOrDefault(current, Collections.emptySet());
+
+        for (String dep : dependents) {
+            // if dep hasn't been visited yet, DFS deeper
+            if (!visited.contains(dep)) {
+                if (dfsDetectCycle(dep, visited, recursionStack)) {
+                    return true;
+                }
+            }
+            // if dep is already in recursionStack, we have a cycle
+            else if (recursionStack.contains(dep)) {
+                return true;
+            }
+        }
+
+        // done exploring current
+        recursionStack.remove(current);
+        return false;
     }
 
     @Override
