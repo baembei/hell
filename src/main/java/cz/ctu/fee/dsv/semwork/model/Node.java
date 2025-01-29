@@ -32,14 +32,33 @@ public class Node {
 
     // Method to handle incoming messages from the coordinator
     private void processUpdate(String message) {
-        if (message.startsWith("UPDATE_GRAPH")) {
-            System.out.println("Node " + nodeId + " received graph update: " + message);
-        } else if (message.startsWith("GRANT")) {
-            System.out.println("Node " + nodeId + " access granted.");
-        } else if (message.startsWith("DENY")) {
-            System.out.println("Node " + nodeId + " access denied.");
+        String[] parts = message.split("\\|");
+
+        if (parts.length < 2) {
+            System.out.println("Node " + nodeId + " received malformed message: " + message);
+            return;
+        }
+
+        if (parts[0].equals("REQUEST")) {
+            if (parts[1].equals("OK")) {
+                if (parts.length >= 4) {
+                    String pId = parts[2];
+                    String rId = parts[3];
+                    System.out.println("Node " + nodeId + " sees: process " + pId
+                            + " got resource " + rId + " (WAITING).");
+                } else {
+                    System.out.println("Node " + nodeId + " received incomplete OK message: " + message);
+                }
+            } else if (parts[1].equals("DENY")) {
+                System.out.println("Node " + nodeId + " sees: request denied => " + message);
+            } else {
+                System.out.println("Node " + nodeId + " received unknown request status: " + message);
+            }
+        } else {
+            System.out.println("Node " + nodeId + " received unknown message type: " + message);
         }
     }
+
 
     public void join() {
         try {
@@ -110,9 +129,13 @@ public class Node {
     }
 
     public void acquireResource(Resource resource) throws Exception {
-        if (resource.getStatus() == EResourceStatus.FREE) {
-            resource.acquire();
-            System.out.println("Node " + nodeId + " acquired resource: " + resource.getResourceId());
+        if (resource.getStatus() == EResourceStatus.WAITING) {
+            if (nodeId.equals(resource.getRequestedBy())) {
+                resource.acquire();
+                System.out.println("Node " + nodeId + " acquired resource: " + resource.getResourceId());
+            } else {
+                System.out.println("Node " + nodeId + " tried to acquire resource " + resource.getResourceId() + " but it was requested by another node!");
+            }
         } else {
             System.out.println("Node " + nodeId + " tried to acquire resource " + resource.getResourceId() + " but it's already taken!");
         }

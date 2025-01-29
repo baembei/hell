@@ -9,6 +9,7 @@ import cz.ctu.fee.dsv.semwork.model.*;
 import lombok.Data;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 @Data
@@ -72,7 +73,7 @@ public class Coordinator {
         }
     }
 
-    private String handleMessage(String message) {
+    private String handleMessage(String message) throws IOException {
         String[] parts = message.split("\\|");
         String requestType = parts[0];
         String processId = (parts.length > 1) ? parts[1] : null;
@@ -252,7 +253,7 @@ public class Coordinator {
     }
 
 
-    private String processRequest(String processId, String resourceId) {
+    private String processRequest(String processId, String resourceId) throws IOException {
 
         Node process = nodes.get(processId);
         Resource resource = resources.get(resourceId);
@@ -270,7 +271,10 @@ public class Coordinator {
             resource.setRequestedBy(processId);
 
             System.out.println("Resource status: " + resource.getStatus());
-            return "REQUEST|OK|" + processId + "|" + resourceId;
+            String response = "REQUEST|OK|" + processId + "|" + resourceId;
+            rabbitMQService.getChannel().basicPublish("", "updates_queue", null, response.getBytes());
+            System.out.println("Sent to updates_queue: " + response);
+            return response;
         } else {
             String ownerOrRequester;
             if (resource.getStatus() == EResourceStatus.OCCUPIED) {
