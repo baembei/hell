@@ -10,6 +10,7 @@ import lombok.Data;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.SQLOutput;
 import java.util.*;
 
 @Data
@@ -92,8 +93,8 @@ public class Coordinator {
             case "REQUEST":
                 // REQUEST|<processId>|<resource>
                 if (parts.length >= 3) {
-                    String resource = parts[2];
-                    return processRequest(processId, resource);
+                    String resourceId = parts[2];
+                    return processRequest(processId, resourceId);
                 } else {
                     return "REQUEST|FAIL|BAD_ARGUMENTS";
                 }
@@ -198,7 +199,9 @@ public class Coordinator {
     // Acquire a resource, if it is in WAITING state for the exact process
     private String processAcquire(String processId, String resourceId) {
         Node process = nodes.get(processId);
+        System.out.println("PROCESS-ID: " + processId);
         Resource resource = resources.get(resourceId);
+        System.out.println("RESOURCE-ID: " + resourceId + " STATUS: " + resource.getStatus() + " REQUESTED BY: " + resource.getRequestedBy());
 
         if (process == null) {
             return "ACQUIRE|FAIL|NO_SUCH_NODE";
@@ -257,6 +260,7 @@ public class Coordinator {
 
         Node process = nodes.get(processId);
         Resource resource = resources.get(resourceId);
+        System.out.println("RECOURCE-ID AND STATUS: " + resource.getResourceId() + resource.getStatus());
 
         if (process == null) {
             return "REQUEST|FAIL|NO_SUCH_NODE";
@@ -268,7 +272,9 @@ public class Coordinator {
         //If the resource is free, the process can request it
         if (resource.getStatus() == EResourceStatus.FREE) {
             resource.setStatus(EResourceStatus.WAITING);
+            System.out.println("Resource status NEW: " + resource.getStatus());
             resource.setRequestedBy(processId);
+            System.out.println("Resource requested by: " + resource.getRequestedBy());
 
             System.out.println("Resource status: " + resource.getStatus());
             String response = "REQUEST|OK|" + processId + "|" + resourceId;
@@ -302,15 +308,6 @@ public class Coordinator {
             }
 
             return "REQUEST|DENY|" + processId + "|" + resourceId;
-        }
-    }
-
-    private String processJoin(String processId) {
-        nodes.get(processId).join();
-        if(nodes.containsKey(processId)){
-            return "JOIN|OK";
-        } else {
-            return "JOIN|FAIL";
         }
     }
 
