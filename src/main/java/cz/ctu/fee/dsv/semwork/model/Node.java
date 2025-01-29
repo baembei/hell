@@ -129,6 +129,8 @@ public class Node {
     }
 
     public void acquireResource(Resource resource) throws Exception {
+
+        System.out.println("HELOOOOOOOOO" + resource.getStatus() + resource.getRequestedBy());
         if (resource.getStatus() == EResourceStatus.WAITING) {
             if (nodeId.equals(resource.getRequestedBy())) {
                 resource.acquire();

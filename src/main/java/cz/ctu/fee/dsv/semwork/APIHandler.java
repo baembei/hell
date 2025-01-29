@@ -1,5 +1,6 @@
 package cz.ctu.fee.dsv.semwork;
 
+import cz.ctu.fee.dsv.semwork.model.EResourceStatus;
 import cz.ctu.fee.dsv.semwork.model.Node;
 import cz.ctu.fee.dsv.semwork.model.Resource;
 import io.javalin.Javalin;
@@ -93,8 +94,9 @@ public class APIHandler {
                 return;
             }
 
-            // Создадим ресурс и попытаемся его занять
             Resource resource = new Resource(resourceId);
+            resource.setRequestedBy(node.getNodeId());
+            resource.setStatus(EResourceStatus.WAITING);
             try {
                 node.acquireResource(resource);
                 ctx.result("Acquire attempt for resource " + resourceId + " completed.");
