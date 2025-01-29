@@ -104,7 +104,7 @@ public class Node {
     }
 
     public void sendRequest(Resource resource) throws Exception {
-        String request = "REQUEST|" + nodeId + "|" + resource;
+        String request = "REQUEST|" + nodeId + "|" + resource.getResourceId();
         rabbitMQService.getChannel().basicPublish("", "requests_queue", null, request.getBytes());
         System.out.println("Node " + nodeId + " sent: " + request);
     }

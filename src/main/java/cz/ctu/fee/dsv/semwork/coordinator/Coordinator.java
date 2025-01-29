@@ -1,16 +1,21 @@
 package cz.ctu.fee.dsv.semwork.coordinator;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import cz.ctu.fee.dsv.semwork.config.Config;
 import cz.ctu.fee.dsv.semwork.config.NodeConfig;
 import cz.ctu.fee.dsv.semwork.model.*;
+import lombok.Data;
 
 import java.io.File;
 import java.util.*;
 
+@Data
 public class Coordinator {
+    @JsonIgnore
     private final RabbitMQService rabbitMQService;
+    @JsonIgnore
     private final WaitForGraph graph;
     private final Map<String, Set<String>> preliminaryRequests;
     private Map<String, Node> nodes = new HashMap<>();
@@ -237,6 +242,7 @@ public class Coordinator {
             resource.setStatus(EResourceStatus.WAITING);
             resource.setRequestedBy(processId);
 
+            System.out.println("Resource status: " + resource.getStatus());
             return "REQUEST|GRANT|" + processId + "|" + resourceId;
         } else {
             // Resource is not free, so we need to check if the process can request it
@@ -270,6 +276,8 @@ public class Coordinator {
             preliminaryRequests.putIfAbsent(process.getNodeId(), new HashSet<>());
             preliminaryRequests.get(process.getNodeId()).add(resource1.getResourceId());
             preliminaryRequests.get(process.getNodeId()).add(resource2.getResourceId());
+
+            System.out.println("ALL PRELIMINARY REQUESTS: " + getPreliminaryRequests());
 
             System.out.println("Preliminary request granted: " + process.getNodeId() + " can request " + resource1.getResourceId() + " and " + resource2.getResourceId());
             return "PRELIMINARY_GRANT|" + process.getNodeId() + "|" + resource1.getResourceId() + "|" + resource2.getResourceId();
