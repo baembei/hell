@@ -7,11 +7,6 @@ rabbitmq:
   username: "myuser"
   password: "mypassword"
 
-#coordinator:
-#  id: "coordinator1"
-#  ip: "192.168.3.200"
-#  port: 7070
-
 nodes:
   - id: "node1"
     ip: "192.168.156.101"

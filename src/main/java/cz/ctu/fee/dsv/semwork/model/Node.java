@@ -1,5 +1,6 @@
 package cz.ctu.fee.dsv.semwork.model;
 
+import com.rabbitmq.client.Channel;
 import lombok.Data;
 
 @Data
@@ -21,13 +22,32 @@ public class Node {
     }
 
     public void start() throws Exception {
-        rabbitMQService.getChannel().queueBind("updates_queue", "updates_exchange", "");
-        rabbitMQService.getChannel().basicConsume("updates_queue", true, (consumerTag, delivery) -> {
-            String message = new String(delivery.getBody());
-            System.out.println("Node " + nodeId + " received: " + message);
-            processUpdate(message);
+        System.out.println("Node " + nodeId + " starting...");
+
+        try {
+            rabbitMQService.setupQueue("updates_queue");
+            rabbitMQService.setupQueue("requests_queue");
+            rabbitMQService.setupExchange("updates_exchange");
+
+            subscribeToQueue("updates_queue");
+        } catch (Exception e) {
+            System.err.println("Error setting up queue or exchange: " + e.getMessage());
+        }
+
+        System.out.println("Node " + nodeId + " started.");
+    }
+
+    private void subscribeToQueue(String queueName) throws Exception {
+        Channel channel = rabbitMQService.getChannel();
+        channel.basicConsume(queueName, true, (consumerTag, message) -> {
+            String msg = new String(message.getBody(), "UTF-8");
+            processMessage(msg);
         }, consumerTag -> {});
-        System.out.println("Node " + nodeId + " listening for updates...");
+    }
+
+    private void processMessage(String message) {
+        System.out.println("Node " + nodeId + " received message: " + message);
+        // Add your message processing logic here
     }
 
     // Method to handle incoming messages from the coordinator

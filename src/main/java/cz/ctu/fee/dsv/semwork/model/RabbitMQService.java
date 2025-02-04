@@ -35,19 +35,24 @@ public class RabbitMQService {
 
 
     public void setupQueue(String queueName) throws Exception {
-        channel.queueDeclare(queueName, true, false, false, null);
-        System.out.println("Queue " + queueName + " created.");
+        try {
+            channel.queueDeclarePassive(queueName);
+            System.out.println("Queue " + queueName + " already exists.");
+        } catch (Exception e) {
+            channel.queueDeclare(queueName, true, false, false, null);
+            System.out.println("Queue " + queueName + " created.");
+        }
     }
 
     public void setupExchange(String exchangeName) throws Exception {
         System.out.println("Setting up exchange: " + exchangeName);
         try {
-            channel.exchangeDeclare(exchangeName, "fanout", true);
+            channel.exchangeDeclarePassive(exchangeName);
+            System.out.println("Exchange " + exchangeName + " already exists.");
         } catch (Exception e) {
-            System.err.println("Error while declaring exchange: " + e.getMessage());
-            e.printStackTrace();
+            channel.exchangeDeclare(exchangeName, "fanout", true);
+            System.out.println("Exchange '" + exchangeName + "' created successfully.");
         }
-        System.out.println("Exchange '" + exchangeName + "' created successfully.");
     }
 
     public Channel getChannel() {
